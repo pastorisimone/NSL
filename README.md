@@ -5,7 +5,7 @@ To compile the C++ codes, simply open a terminal, navigate to the desired direct
 
 `make`
 
-Or, to directly run the code:
+Or, for every directory except exercise_01/ or exercise_02/ to directly run the code:
 
 `make run`
 
