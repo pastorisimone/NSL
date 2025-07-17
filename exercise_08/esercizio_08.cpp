@@ -42,49 +42,9 @@ Vect Step(Random& rand, Vect X0, double delta_x = 2, double delta_y = 0.1, doubl
 	x_new.z = X0.z + (rand.Rannyu() * delta_z - delta_z / 2.);
 	return x_new;
 }
-/*Vect* Metropolis_3D(Random& rand, int n_step, double (*p)(double, double, double), Vect X0, double equilibrate = 0.5) {
-
-	Vect* X = new Vect[n_step];
-	X[0] = X0;
-	Vect x_new;
-	double a;
-	int n_step_eq = int(double(n_step) * equilibrate);
-
-	double delta = 0.0529;										//------------------------------scala ----- acceptance????
-
-	//equilibrate:
-	for (int n = 0; n < n_step_eq; n++) {
-
-		Vect step(rand.Rannyu() * 2 * delta - delta, rand.Rannyu() * 2 * delta - delta, rand.Rannyu() * 2 * delta - delta);
-		x_new = X[n] + step;
-
-		a = min(1., p(x_new.x, x_new.y, x_new.z) / p(X[n].x, X[n].y, X[n].z));
-
-		double r = rand.Rannyu();
-		if (r <= a) X[n + 1] = x_new;					//accept
-		else X[n + 1] = X[n];							//reject
-	}
-	X[0] = X[n_step_eq];
-
-	//actually start generating points after reaching equilibrium
-	for (int n = 0; n < n_step - 1; n++) {
-
-		Vect step(rand.Rannyu() * 2 * delta - delta, rand.Rannyu() * 2 * delta - delta, rand.Rannyu() * 2 * delta - delta);
-		x_new = X[n] + step;
-
-		a = min(1., p(x_new.x, x_new.y, x_new.z) / p(X[n].x, X[n].y, X[n].z));
-
-		double r = rand.Rannyu();
-		if (r <= a) X[n + 1] = x_new;					//accept
-		else X[n + 1] = X[n];							//reject
-	}
-
-	return X;
-
-}*/
 
 
-double* Metropolis_1D(Random& rand, int n_step, double (*p)(double, double, double), Vect x0, double equilibrate = 0.5) {
+double* Metropolis_1D(Random& rand, int n_step, double (*p)(double, double, double), Vect x0, double equilibrate = 0.5, bool print_acceptance = false) {
 
 
 	double* x = new double[n_step];
@@ -94,8 +54,9 @@ double* Metropolis_1D(Random& rand, int n_step, double (*p)(double, double, doub
 	double x_new;
 	double a;
 	int n_step_eq = int(double(n_step) * equilibrate);
+	int accept = 0;
 
-	double delta = 0.0529;										//------------------------------scala ----- acceptance????
+	double delta = 2.;										
 
 	//equilibrate:
 	for (int n = 0; n < n_step_eq; n++) {
@@ -118,10 +79,14 @@ double* Metropolis_1D(Random& rand, int n_step, double (*p)(double, double, doub
 		a = min(1., p(x_new, sigma, mu) / p(x[n], sigma, mu));
 
 		double r = rand.Rannyu();
-		if (r <= a) x[n + 1] = x_new;					//accept
+		if (r <= a) {
+			x[n + 1] = x_new;							//accept
+			accept++;
+		}
 		else x[n + 1] = x[n];							//reject
 	}
 
+	if (print_acceptance) cout << "Metropolis acceptance rate = " << double(accept) / double(n_step) << endl;
 
 	return x;
 
@@ -131,13 +96,13 @@ double* Metropolis_1D(Random& rand, int n_step, double (*p)(double, double, doub
 double MC_integrate(function<double(double, double, double)> my_funct, Random& rand, double* funct_sample, double sigma, double mu, 
 					double& error_out, int M = 10000, int N = 100, string filename = "no_file") {
 
-	int L = M / N;			//point increment per block				<|-------------<<<<< cambiare in base all'array?
+	int L = M / N;	
 
 	double r;
 	double* mysum = new double[N];
 	double* mysum_squares = new double[N];
 	double* myerr_mean = new double[N];
-	double result;													//
+	double result;													
 	myerr_mean[0] = 0;
 
 	ofstream result_out;
@@ -152,8 +117,8 @@ double MC_integrate(function<double(double, double, double)> my_funct, Random& r
 	//first for i=0:
 	mysum[0] = 0;
 	for (int j = 0; j < L; j++) {
-		r = funct_sample[j];						// generated sample array		// <|------<<<<<< oppure estrarre a caso da f_sample?
-		mysum[0] += my_funct(r, sigma, mu);					// accumulate the sum for mean
+		r = funct_sample[j];						
+		mysum[0] += my_funct(r, sigma, mu);				
 	}
 	mysum[0] /= L;
 	mysum_squares[0] = mysum[0] * mysum[0];
@@ -237,7 +202,7 @@ int main() {
 	int n_steps = 100;					//metropolis steps at a single temperature
 	int n_samples_int = 10000;			//# samples for integration
 	double T[n_schedule];				//array with temperature time series for simulated annealing
-	Vect X0(0.0529, 2, 3);			//initial position
+	Vect X0(0.0529, 2., 1.);			//initial position
 
 	double error;						//integration error to print
 	//double cost;
@@ -257,8 +222,10 @@ int main() {
 	L0 = MC_integrate(target, rand, x_samples, s_old.y, s_old.z, error);
 	//save data:
 	out << 1 << setw(12) << s_old.y << setw(12) << s_old.z << setw(12) << L0 << setw(12) << error << setw(12) << 1 << endl;
+	cout << "simulated annealing: " << endl;
 	for (int i = 0; i < n_schedule; i++) {	//iterate on the annealing schedule
 		T[i] = 1. - (1. / n_schedule) * i;
+		if (i % 10 == 0) cout << i << "%" << endl;
 
 		for (int j = 0; j < n_steps; j++) {	
 			s_new = Step(rand, s_old);
@@ -296,8 +263,9 @@ int main() {
 	out.close();
 
 	//compute integral at minimum values:
-	n_samples_int = 1000000;
-	x_samples = Metropolis_1D(rand, n_samples_int, p_density, s_old);	//sample from psi**2(x)|(sigma(L0), mu(L0)) for integration
+	cout << "computing integral: " << endl;
+	n_samples_int = 100000;
+	x_samples = Metropolis_1D(rand, n_samples_int, p_density, s_old, 1., true);	//sample from psi**2(x)|(sigma(L0), mu(L0)) for integration
 	L1 = MC_integrate(target, rand, x_samples, s_old.y, s_old.z, error, 10000, 100, "output_integral.dat");
 
 	//save sampling:
